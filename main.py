@@ -1,99 +1,66 @@
-# L1KX 404 - TRX SULTAN ULTRA PREMIUM V2
-import os, ccxt, time, io
-import matplotlib.pyplot as plt
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+import os, glob, asyncio, requests
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
 
-TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = "-1001234567890"
 
-def sultan_box(price, pintu, change):
-    return f"""
-╔════════════════════════════════════╗
-║  💎  𝐓𝐑𝐗 𝐒𝐔𝐋𝐓𝐀𝐍 𝐏𝐑𝐄𝐌𝐈𝐔𝐌 𝐔𝐋𝐓𝐑𝐀  💎  ║
-╠════════════════════════════════════╣
-║ 💰 BINANCE : ${price}
-║ 🏦 PINTU   : Rp {pintu}
-║ 📊 24H     : {change}% ▲ SULTAN
-║ ⏰ {time.strftime('%H:%M:%S WIB')} - {time.strftime('%d %b %Y')}
-║ ⚡ PREMIUM 24JAM | MOTIF GOLD BATIK
-╚════════════════════════════════════╝
-"""
-
-def get_price():
-    try:
-        ex = ccxt.binance()
-        t = ex.fetch_ticker('TRX/USDT')
-        ohlcv = ex.fetch_ohlcv('TRX/USDT','1h',limit=24)
-        return round(t['last'],4), round(t['percentage'],2), ohlcv
-    except:
-        return 0.3493, 1.38, [[0,0,0,0.3493,0]]
-
-def make_chart(ohlcv):
-    closes = [c[4] for c in ohlcv]
-    plt.figure(figsize=(4,2))
-    plt.plot(closes, linewidth=2)
-    plt.title("TRX SULTAN CHART 24H")
-    plt.grid(True, alpha=0.3)
-    buf = io.BytesIO()
-    plt.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-    buf.seek(0)
-    plt.close()
-    return buf
+def get_video_file():
+    files = glob.glob("*.mp4") + glob.glob("*.MP4")
+    return files[0] if files else None
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    price, change, _ = get_price()
-    pintu = int(price*17600)
-    
-    # Kirim VIDEO kalau ada di repo
-    try:
-        for vid in os.listdir("."):
-            if vid.endswith(".mp4"):
-                await update.message.reply_animation(open(vid,'rb'), caption="🔥 WELCOME SULTAN ULTRA 🔥")
-                break
-    except: pass
-
+    video = get_video_file()
     keyboard = [
-        [InlineKeyboardButton(f"💎 LIVE ${price}", callback_data='live')],
-        [InlineKeyboardButton(f"🏦 PINTU Rp {pintu}", callback_data='pintu')],
-        [InlineKeyboardButton("📈 CHART + GAMBAR", callback_data='chart')],
-        [InlineKeyboardButton("🔔 ALERT $0.35+ BREAKOUT", callback_data='alert')],
-        [InlineKeyboardButton("👑 TARGET $0.40 SULTAN", callback_data='target')],
-        [InlineKeyboardButton("🔄 REFRESH ULTRA", callback_data='live')],
+        [InlineKeyboardButton("💎 💰 CEK HARGA TRX", callback_data="harga")],
+        [InlineKeyboardButton("📈 CHART + GAMBAR SULTAN", callback_data="chart")],
+        [InlineKeyboardButton("🎯 TARGET $0.40", callback_data="target")],
+        [InlineKeyboardButton("🔥 ANALISA BREAKOUT", callback_data="analisa")]
     ]
-    await update.message.reply_text(sultan_box(price, f"{pintu:,}".replace(",","."), change), reply_markup=InlineKeyboardMarkup(keyboard))
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    text = """
+✨━━━━━━━━━━━━━━━✨
+💎 **TRX SULTAN PREMIUM ULTRA** 💎
+✨━━━━━━━━━━━━━━━✨
+💰 $0.3493 ➔ $0.40 BREAKOUT
+🔥 DIAMOND HOLD SULTAN
+✨━━━━━━━━━━━━━━━✨
+"""
+    try:
+        if video:
+            await update.message.reply_video(video=open(video, 'rb'), caption=text, parse_mode='Markdown', reply_markup=reply_markup)
+        else:
+            await update.message.reply_text(text, parse_mode='Markdown', reply_markup=reply_markup)
+    except Exception as e:
+        await update.message.reply_text(text, parse_mode='Markdown', reply_markup=reply_markup)
 
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    price, change, ohlcv = get_price()
-    pintu = int(price*17600)
-    
-    if q.data == 'live':
-        await q.edit_message_text(sultan_box(price, f"{pintu:,}".replace(",","."), change)+"\n🔄 LIVE UPDATE ULTRA", reply_markup=q.message.reply_markup)
-    elif q.data == 'pintu':
-        await q.message.reply_text(f"🏦 PINTU DETAIL\n💵 ${price} x 17600 = Rp {pintu:,}\n📊 Selisih premium sultan!")
-    elif q.data == 'chart':
-        chart = make_chart(ohlcv)
-        await q.message.reply_photo(photo=chart, caption=f"📈 TRX ${price} -> $0.40 Target SULTAN\n24H {change}%")
-    elif q.data == 'alert':
-        await q.message.reply_text(f"🔔 ALERT ULTRA SET!\nSekarang ${price}\nKalau jebol $0.35 auto kirim video breakout ke private!")
-    elif q.data == 'target':
-        await q.message.reply_text(f"👑 TARGET SULTAN\nEntry $0.3493 -> Target $0.40 (+14.5%)\nStop $0.33 | PREMIUM 24JAM")
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if query.data == "harga":
+        r = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=TRXUSDT").json()
+        price = r.get('price','0.3493')
+        await query.message.reply_text(f"💎 **TRX HARGA SULTAN:** ${price}\n🎯 TARGET: $0.40\n💰 POTENSI: +15%", parse_mode='Markdown')
+    elif query.data == "chart":
+        x = np.linspace(0, 10, 100)
+        y = 0.32 + 0.02*np.sin(x) + 0.01*x
+        plt.figure(figsize=(10,5), facecolor='black')
+        plt.plot(x, y, color='gold', linewidth=3)
+        plt.title('TRX SULTAN CHART TO $0.40', color='gold', fontsize=16)
+        plt.gca().set_facecolor('black')
+        plt.savefig('chart.png', facecolor='black')
+        plt.close()
+        await query.message.reply_photo(photo=open('chart.png','rb'), caption="📈 CHART SULTAN TRX $0.3493 -> $0.40 GOLD PREMIUM")
+    elif query.data == "target":
+        await query.message.reply_text("🎯 **TARGET SULTAN:**\n$0.3493 -> $0.36 -> $0.38 -> $0.40\nSTOP LOSS: $0.33\nHOLD SULTAN!", parse_mode='Markdown')
+    elif query.data == "analisa":
+        await query.message.reply_text("🔥 **BREAKOUT ANALISA:**\nTRX siap breakout $0.40\nVolume naik 200%\nWhale akumulasi\nSULTAN BUY!", parse_mode='Markdown')
 
-async def auto_monitor(context: ContextTypes.DEFAULT_TYPE):
-    price, _, _ = get_price()
-    if price >= 0.35 and CHAT_ID:
-        await context.bot.send_message(chat_id=CHAT_ID, text=f"🚀🚀 BREAKOUT SULTAN ${price} JEBOL $0.35+ 💎💎")
-
-def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("chart", lambda u,c: button_handler))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.job_queue.run_repeating(auto_monitor, interval=60, first=10)
-    print("ULTRA ON")
-    app.run_polling()
-
-if __name__ == '__main__':
-    main()
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CallbackQueryHandler(button))
+app.run_polling()
