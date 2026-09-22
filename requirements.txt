@@ -1,3 +1,5 @@
-python-telegram-bot[job-queue]==20.7
-ccxt==4.1.77
-matplotlib==3.8.2
+python-telegram-bot==20.7
+matplotlib
+numpy
+requests
+pillow
